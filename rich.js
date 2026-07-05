@@ -1,18 +1,14 @@
-// === RICH MESSAGES (Telegram Bot API 10.1, sendRichMessage) ===
-// Единая точка отправки "богатых" сообщений.
-// На новых клиентах Telegram рисует document-grade формат (заголовки, списки,
-// таблицы, цитаты, сворачиваемые блоки <details>, спойлеры, код с подсветкой).
-// На старых клиентах / при любой ошибке — автоматический фоллбэк в обычный sendMessage.
-//
-// node-telegram-bot-api пока не знает метод sendRichMessage, поэтому шлём сырым HTTP
-// (тот же приём, что уже используется для getBusinessConnection в index.js).
+// === богатые сообщения (telegram bot api 10.1, sendRichMessage) ===
+// теперь лёня умеет кидать красиво оформленные сообщения: заголовки, таблицы,
+// списки, цитаты, спойлеры, код с подсветкой — всё как люди делают.
+// если у кого-то старый телеграм или что-то сломалось — автоматом переключится на обычный текст.
 
 const axios = require('axios');
 const config = require('../config');
 
 const API = `https://api.telegram.org/bot${config.telegramToken}`;
 
-// Экранирование для вставки динамического текста в HTML-разметку.
+// чистим текст для html, чтобы не сломал разметку
 function escapeHtml(text = '') {
   return String(text)
     .replace(/&/g, '&amp;')
@@ -20,7 +16,7 @@ function escapeHtml(text = '') {
     .replace(/>/g, '&gt;');
 }
 
-// Грубая, но надёжная конвертация нашего HTML в читаемый плейн-текст (для фоллбэка).
+// из html в простой текст — на случай, если богатое сообщение не пройдёт
 function htmlToPlain(html = '') {
   return String(html)
     .replace(/<br\s*\/?>/gi, '\n')
@@ -37,9 +33,7 @@ function htmlToPlain(html = '') {
     .trim();
 }
 
-// Markdown ИИ шлём как есть — Telegram rich рисует его красиво (в т.ч. таблицы).
-// Единственное: гарантируем пустую строку ПЕРЕД таблицей, иначе парсер иногда
-// не распознаёт её как таблицу, если прямо над ней идёт текст.
+// чиним markdown перед отправкой — телеграм любит, когда перед таблицей есть пустая строка
 function normalizeMd(md = '') {
   const lines = String(md).split('\n');
   const out = [];
@@ -56,13 +50,14 @@ function normalizeMd(md = '') {
   return out.join('\n');
 }
 
+// режем длинные сообщения, чтобы телеграм не ругался
 function splitChunks(text, size = 4000) {
   return String(text).match(new RegExp(`[\\s\\S]{1,${size}}`, 'g')) || [String(text)];
 }
 
 /**
- * Отправляет богатое сообщение с авто-фоллбэком.
- * @param {object} bot — инстанс node-telegram-bot-api (нужен для фоллбэка)
+ * отправляет богатое сообщение с авто-подстраховкой
+ * @param {object} bot — инстанс node-telegram-bot-api (для фоллбэка)
  * @param {number|string} chatId
  * @param {{html?:string, markdown?:string, fallback?:string}} content — ровно одно из html / markdown
  * @param {{replyTo?:number, threadId?:number, businessId?:string, replyMarkup?:object, silent?:boolean}} [opts]
@@ -74,7 +69,7 @@ async function sendRich(bot, chatId, content, opts = {}) {
   else if (content.markdown != null) rich.markdown = content.markdown;
   else throw new Error('sendRich: нужен html или markdown');
 
-  // Параметры для нового метода (стиль Bot API: reply_parameters вместо reply_to_message_id)
+  // параметры для нового метода (reply_parameters вместо reply_to_message_id)
   const extra = {};
   if (opts.replyTo) extra.reply_parameters = { message_id: opts.replyTo, allow_sending_without_reply: true };
   if (opts.threadId) extra.message_thread_id = opts.threadId;
@@ -82,18 +77,14 @@ async function sendRich(bot, chatId, content, opts = {}) {
   if (opts.replyMarkup) extra.reply_markup = opts.replyMarkup;
   if (opts.silent) extra.disable_notification = true;
 
-  // 1) Пытаемся отправить богато.
-  // proxy:false — чтобы axios шёл напрямую (как node-telegram-bot-api), игнорируя
-  // переменные окружения HTTP(S)_PROXY (иначе локальный прокси ломает запрос).
+  // 1) пробуем отправить богато
   try {
     await axios.post(`${API}/sendRichMessage`, { chat_id: chatId, rich_message: rich, ...extra }, { proxy: false });
     return { ok: true, mode: 'rich' };
   } catch (e) {
     const desc = e.response?.data?.description || e.message;
 
-    // Если rich упал из-за медиа (битый URL картинки) — пробуем ещё раз БЕЗ картинок,
-    // чтобы сохранить форматирование (таблицы/списки), а не падать в плоский текст.
-    // Картинки Telegram качает сам со своей стороны, поэтому доверяем именно его вердикту.
+    // если богатое упало из-за картинок — пробуем без них, чтобы сохранить форматирование
     const hasImg = /!\[|<tg-(collage|slideshow)/i.test(content.markdown || '') || /<img|<tg-(collage|slideshow)/i.test(content.html || '');
     if (hasImg && /media|no_media|RICH_MESSAGE/i.test(desc)) {
       const noImg = {};
@@ -101,14 +92,14 @@ async function sendRich(bot, chatId, content, opts = {}) {
       if (content.html != null) noImg.html = content.html.replace(/<\/?tg-(collage|slideshow)>/gi, '').replace(/<img[^>]*>/gi, '');
       try {
         await axios.post(`${API}/sendRichMessage`, { chat_id: chatId, rich_message: noImg, ...extra }, { proxy: false });
-        console.error(`[RICH] медиа не прошло, отправил без картинок: ${desc}`);
+        console.error(`[RICH] картинки не пролезли, отправил без них: ${desc}`);
         return { ok: true, mode: 'rich-noimg' };
-      } catch (_) { /* падаем в общий фоллбэк ниже */ }
+      } catch (_) { /* падаем в общий фоллбэк */ }
     }
 
     console.error(`[RICH] sendRichMessage упал, фоллбэк в текст: ${desc}`);
 
-    // 2) Фоллбэк — обычный sendMessage
+    // 2) фоллбэк — обычный sendMessage
     const legacy = { disable_web_page_preview: true };
     if (opts.replyTo) legacy.reply_to_message_id = opts.replyTo;
     if (opts.threadId) legacy.message_thread_id = opts.threadId;
@@ -116,13 +107,13 @@ async function sendRich(bot, chatId, content, opts = {}) {
     if (opts.replyMarkup) legacy.reply_markup = opts.replyMarkup;
     if (opts.silent) legacy.disable_notification = true;
 
-    // Для markdown-контента пробуем сохранить разметку (legacy Markdown), иначе плейн.
+    // для markdown пробуем сохранить разметку, если не выйдет — шлём как есть
     if (content.markdown != null && content.fallback == null) {
       for (const chunk of splitChunks(content.markdown)) {
         try {
           await bot.sendMessage(chatId, chunk, { ...legacy, parse_mode: 'Markdown' });
         } catch (_) {
-          await bot.sendMessage(chatId, chunk, legacy); // совсем сырой текст
+          await bot.sendMessage(chatId, chunk, legacy);
         }
       }
       return { ok: true, mode: 'fallback', error: desc };
