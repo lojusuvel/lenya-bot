@@ -108,7 +108,7 @@ async function shouldProcessBusinessMessage(msg) {
   try {
     connection = await getBusinessConnection(connectionId);
   } catch (error) {
-    console.error(`[BUSINESS] Не смог получить connection ${connectionId}: ${error.message}`);
+    console.error(`[BUSINESS] не получил connection ${connectionId}: ${error.message}`);
     if (hasTrigger) {
       bot.sendMessage(config.adminId, `${debugPrefix}\nstatus=connection_error\nerror=${error.message}`).catch(() => {});
     }
@@ -120,21 +120,21 @@ async function shouldProcessBusinessMessage(msg) {
   const canReply = Boolean(rights.can_reply || connection?.can_reply);
 
   if (!connection || connection.is_enabled === false) {
-    console.log(`[BUSINESS] disabled chat=${chatTitle} owner=${ownerId || 'unknown'} trigger=${hasTrigger}`);
+    console.log(`[BUSINESS] выкл chat=${chatTitle} owner=${ownerId || 'unknown'} trigger=${hasTrigger}`);
     if (hasTrigger) {
       bot.sendMessage(config.adminId, `${debugPrefix}\nstatus=disabled\nowner=${ownerId || 'unknown'}\ncan_reply=${canReply}`).catch(() => {});
     }
     return false;
   }
   if (ownerId && Number(ownerId) !== Number(config.adminId)) {
-    console.log(`[BUSINESS] Игнорирую connection ${connectionId}: владелец ${ownerId} не админ ${config.adminId}`);
+    console.log(`[BUSINESS] игнор connection ${connectionId}: владелец ${ownerId} не админ ${config.adminId}`);
     if (hasTrigger) {
       bot.sendMessage(config.adminId, `${debugPrefix}\nstatus=wrong_owner\nowner=${ownerId}\nadmin=${config.adminId}`).catch(() => {});
     }
     return false;
   }
   if ((connection.rights || Object.prototype.hasOwnProperty.call(connection, 'can_reply')) && !canReply) {
-    console.log(`[BUSINESS] no can_reply chat=${chatTitle} owner=${ownerId || 'unknown'} trigger=${hasTrigger}`);
+    console.log(`[BUSINESS] нет can_reply chat=${chatTitle} owner=${ownerId || 'unknown'} trigger=${hasTrigger}`);
     if (hasTrigger) {
       bot.sendMessage(config.adminId, `${debugPrefix}\nstatus=no_can_reply\nowner=${ownerId || 'unknown'}`).catch(() => {});
     }
@@ -156,13 +156,13 @@ async function handleBusinessMessage(msg) {
 const ai = require('./services/ai');
 ai.setBot(bot);
 
-console.log("Сыч запущен и готов пояснять за жизнь.");
+console.log("лёнЯ запущен и готов пояснять за жизнь.");
 console.log(`Admin ID: ${config.adminId}`);
 
 bot.getMe().then((me) => {
   console.log(`[BOT] @${me.username || 'unknown'} business=${Boolean(me.can_connect_to_business)}`);
 }).catch((err) => {
-  console.error(`[BOT] Не смог получить getMe: ${err.message}`);
+  console.error(`[BOT] не вышло получить getMe: ${err.message}`);
 });
 
 // === ТИКЕР НАПОМИНАЛОК (Проверка каждую минуту) ===
@@ -170,47 +170,42 @@ setInterval(() => {
   const pending = storage.getPendingReminders();
   
   if (pending.length > 0) {
-      console.log(`[REMINDER] Сработало напоминаний: ${pending.length}`);
+      console.log(`[REMINDER] сработало напоминаний: ${pending.length}`);
       
       const idsToRemove = [];
 
       pending.forEach(task => {
-          // Формируем сообщение
           const message = task.text
               ? `⏰ <b>${escapeHtml(task.username)}</b>, напоминаю!<blockquote>${escapeHtml(task.text)}</blockquote>`
               : `⏰ <b>${escapeHtml(task.username)}</b>, напоминаю!`;
           
-          // Отправляем
           sendRich(bot, task.chatId, { html: message }).then(() => {
-              console.log(`[REMINDER] Успешно отправлено: ${task.text}`);
+              console.log(`[REMINDER] отправлено: ${task.text}`);
           }).catch(err => {
-              console.error(`[REMINDER ERROR] Не смог отправить в ${task.chatId}: ${err.message}`);
-              // Если юзер заблочил бота, все равно удаляем, чтобы не спамить в лог ошибками
+              console.error(`[REMINDER ERROR] не смог отправить в ${task.chatId}: ${err.message}`);
           });
 
           idsToRemove.push(task.id);
       });
 
-      // Чистим базу
       storage.removeReminders(idsToRemove);
   }
-}, 60 * 1000); // 60000 мс = 1 минута
+}, 60 * 1000);
 
 // Обработка ошибок поллинга
 bot.on('polling_error', (error) => {
     console.error(`[POLLING ERROR] ${error.code}: ${error.message}`);
-    // Если ошибка "Conflict: terminated by other getUpdates", значит запущен второй экземпляр
   });
 
 bot.on('business_connection', (connection) => {
   businessConnections.set(connection.id, connection);
   const rights = connection.rights || {};
   const user = connection.user?.username ? `@${connection.user.username}` : connection.user?.first_name || connection.user?.id;
-  console.log(`[BUSINESS] ${connection.is_enabled ? 'Подключен' : 'Отключен'}: ${user}, can_reply=${Boolean(rights.can_reply)}, id=${connection.id}`);
+  console.log(`[BUSINESS] ${connection.is_enabled ? 'подключен' : 'отключен'}: ${user}, can_reply=${Boolean(rights.can_reply)}, id=${connection.id}`);
 });
 
 bot.on('deleted_business_messages', (update) => {
-  console.log(`[BUSINESS] Удалены сообщения: chat=${update.chat?.id}, ids=${update.message_ids?.join(',')}`);
+  console.log(`[BUSINESS] удалены сообщения: chat=${update.chat?.id}, ids=${update.message_ids?.join(',')}`);
 });
 
 bot.on('business_message', async (msg) => {
@@ -223,31 +218,26 @@ bot.on('edited_business_message', async (msg) => {
 
 // Единый вход для всех сообщений
 bot.on('message', async (msg) => {
-  // Игнорируем сообщения, старше 2 минут (чтобы не отвечать на старое при рестарте)
   if (!isFreshMessage(msg)) return;
 
   const chatId = msg.chat.id;
-  const chatTitle = msg.chat.title || "Личка";
+  const chatTitle = msg.chat.title || "личка";
 
-  // === 🛡 SECURITY PROTOCOL: "ВЕРНЫЙ ОРУЖЕНОСЕЦ" ===
-  // Проверяем наличие Админа в ЛЮБОМ групповом чате при ЛЮБОМ сообщении
+  // === СЕКЬЮРИТИ: проверка админа ===
   if (msg.chat.type !== 'private') {
       try {
-          // 1. Проверяем статус Админа в этом чате
           const adminMember = await bot.getChatMember(chatId, config.adminId);
           const allowedStatuses = ['creator', 'administrator', 'member'];
 
-          // 2. Если Админа нет (left, kicked) или он не участник
           if (!allowedStatuses.includes(adminMember.status)) {
-            console.log(`[SECURITY] ⛔ Обнаружен чат без Админа...`);
+            console.log(`[SECURITY] чат без админа...`);
             
-            // ВОТ ТУТ МЕНЯЕМ СООБЩЕНИЕ
             const phrases = [
-                "Так, стопэ. Админа не вижу. Благотворительности не будет, я уёбываю!",
-                "Опа, куда это меня занесло? Бати рядом нет, так что я уёбываю!",
-                "Вы че думали, украли бота? Я не работаю в беспризорных приютах. Я уёбываю!",
-                "⚠️ ERROR: ADMIN NOT FOUND. Включаю протокол самоуважения. Я уёбываю!",
-                "Не, ну вы видели? Затащили без спроса. Ну вас нахер, я уёбываю!"
+                "так, стопэ. админа не вижу. благотворительности не будет, я уёбываю.",
+                "опа, куда это меня занесло? моего хорошего рядом нет, так что я уёбываю.",
+                "вы че думали, украли бота? я не работаю в беспризорных приютах. я уёбываю.",
+                "⚠️ error: admin not found. включаю протокол самоуважения. я уёбываю.",
+                "не, ну вы видели? затащили без спроса. ну вас нахер, я уёбываю."
             ];
             const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
 
@@ -256,22 +246,18 @@ bot.on('message', async (msg) => {
             return; 
         }
       } catch (e) {
-        // Если ошибка проверки прав
-        console.error(`[SECURITY ERROR] Ошибка проверки прав в "${chatTitle}": ${e.message}`);
+        console.error(`[SECURITY ERROR] ошибка проверки прав в "${chatTitle}": ${e.message}`);
         
-        // ВЫХОДИМ ТОЛЬКО ЕСЛИ ЧАТА БОЛЬШЕ НЕТ ИЛИ БОТА КИКНУЛИ
-        // При обычных сетевых ошибках (ETIMEDOUT, 502 и т.д.) - ОСТАЕМСЯ
         if (e.message.includes('chat not found') || e.message.includes('kicked') || e.message.includes('Forbidden')) {
            bot.leaveChat(chatId).catch(() => {});
         } 
-        // Во всех остальных случаях (лаг API) — просто игнорируем и работаем дальше
     }
   }
 
-  // === ЛОГИКА ВЫХОДА ВСЛЕД ЗА АДМИНОМ (ХАТИКО) ===
+  // === ВЫХОД ВСЛЕД ЗА АДМИНОМ ===
   if (msg.left_chat_member && msg.left_chat_member.id === config.adminId) {
-    console.log(`[SECURITY] Админ вышел из чата "${chatTitle}". Ухожу следом.`);
-    await sendRich(bot, chatId, { markdown: "Батя ушел, и я сваливаю." });
+    console.log(`[SECURITY] админ вышел из чата "${chatTitle}". ухожу следом.`);
+    await sendRich(bot, chatId, { markdown: "админ ушёл, и я сваливаю." });
     await bot.leaveChat(chatId);
     return;
   }
@@ -282,7 +268,7 @@ bot.on('message', async (msg) => {
 
 // Сохраняем базу при выходе
 process.on('SIGINT', () => {
-  console.log("Сохранение данных перед выходом...");
+  console.log("сохранение данных перед выходом...");
   storage.forceSave(); 
   process.exit();
 });
