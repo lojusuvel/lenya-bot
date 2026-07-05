@@ -11,7 +11,7 @@ async function getResponse(history, msg, imageBuffer, mimeType, instruction, use
         const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
         if (!apiKey) {
             console.error('GOOGLE_GEMINI_API_KEY не найден!');
-            return "ошибка: нет ключа gemini";
+            return "ошибка: нет ключа gemini. добавь переменную googLE_gemini_api_key на рендере.";
         }
 
         const historyText = history.slice(-5).map(m => `${m.role}: ${m.text}`).join('\n');
