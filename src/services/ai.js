@@ -9,10 +9,10 @@ function setBot(bot) {
 
 async function getResponse(history, msg, imageBuffer, mimeType, instruction, userProfile, isSpontaneous, chatProfile) {
     try {
-        const apiKey = process.env.AI_API_KEY || config.aiKey;
+        const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
         if (!apiKey) {
-            console.error('AI_API_KEY не найден!');
-            return "ошибка: нет ключа api.";
+            console.error('GOOGLE_GEMINI_API_KEY не найден!');
+            return "ошибка: нет ключа gemini.";
         }
 
         const historyText = history.slice(-10).map(m => `${m.role}: ${m.text}`).join('\n');
@@ -34,28 +34,25 @@ ${msg.replyText ? `Ответ на: ${msg.replyText}` : ''}
 `;
 
         const response = await axios.post(
-            'https://openrouter.ai/api/v1/chat/completions',
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
             {
-                model: 'openrouter/free',
-                messages: [
-                    { role: 'system', content: 'Ты — Лёня, дерзкий бот с характером.' },
-                    { role: 'user', content: prompt }
+                contents: [
+                    {
+                        parts: [{ text: prompt }]
+                    }
                 ],
-                max_tokens: 200,
-                temperature: 0.9
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
+                generationConfig: {
+                    temperature: 0.9,
+                    maxOutputTokens: 200
                 }
             }
         );
 
-        return response.data.choices[0].message.content || "не, я хз чё сказать";
+        const text = response.data.candidates[0].content.parts[0].text;
+        return text || "не, я хз чё сказать";
 
     } catch (error) {
-        console.error('AI Error:', error.response?.data || error.message);
+        console.error('Gemini Error:', error.response?.data || error.message);
         return "бля, ошибка. попробуй позже.";
     }
 }
