@@ -25,24 +25,17 @@ module.exports = {
 
   // === АКТУАЛЬНЫЕ МОДЕЛИ (ИЮНЬ 2026) ===
 
-  // 1. УМНАЯ (Ответы в чате)
+  // 1. УМНАЯ (Ответы в чате) - оставляем как есть
   mainModel: 'google/gemini-3.5-flash',
   
   // 2. ЛОГИКА (Анализ, реакции, проверки)
-  // Free версия недоступна, используем эффективную платную
   logicModel: 'google/gemma-3-27b-it', 
 
   // === ПОИСК (RAG или NATIVE) ===
-  // Варианты: 
-  // 'tavily'     -> Использует Tavily API (RAG). Лучший вариант для сторонних моделей.
-  // 'perplexity' -> Использует модель Sonar через OpenRouter (RAG).
-  // 'google'     -> Переключается на нативный Google API с встроенным поиском (Tools).
-  // Если в .env не задано, по умолчанию используем 'tavily'
-  searchProvider: process.env.SEARCH_PROVIDER || 'tavily',  
+  searchProvider: process.env.SEARCH_PROVIDER || 'google',  // Меняем на google (бесплатно)
   
-  // Настройки провайдеров
   tavilyKey: process.env.TAVILY_API_KEY,
-  perplexityModel: 'perplexity/sonar', // Актуальный алиас
+  perplexityModel: 'perplexity/sonar',
 
   // === GEMINI NATIVE (FALLBACK / SEARCH) ===
   geminiKeys: geminiKeys,
@@ -50,17 +43,9 @@ module.exports = {
   fallbackModelName: 'gemini-2.5-flash-lite',
   contextSize: 30,
 
-  // === ПОТОЛОК ВЫВОДА МОДЕЛИ ===
-  // Раньше было 3500 — длинные ответы рвало на полуслове (особенно с блоком «Источники»).
-  // Telegram rich (sendRichMessage) держит ~32k символов, а модели — до 64k токенов,
-  // так что даём простор, чтобы большие сообщения доходили целиком. Это лишь ПОТОЛОК:
-  // платим только за реально сгенерированные токены, модель сама останавливается раньше.
   maxOutputTokens: 16000,
-
-  // Потолок длины описания-памяти картинки (символы). Подробное описание оседает в
-  // истории чата и едет в контексте, пока картинка в окне, — поэтому потолок конечный.
-  // ~1500 ≈ хороший абзац-полтора. Под скрины с большими таблицами текста можно поднять.
   imageDescMaxChars: 1500,
 
-  triggerRegex: /(?<![а-яёa-z])(сыч|sych)(?![а-яёa-z])/i,
+  // ✅ САМОЕ ГЛАВНОЕ — МЕНЯЕМ ТРИГГЕР С "СЫЧ" НА "ЛЁНЯ"
+  triggerRegex: /(?<![а-яёa-z])(лёня|леня|леон|ленечка)(?![а-яёa-z])/i,
 };
