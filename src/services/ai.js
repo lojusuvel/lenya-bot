@@ -1,5 +1,4 @@
 const axios = require('axios');
-const config = require('../config');
 
 let botInstance = null;
 
@@ -9,10 +8,10 @@ function setBot(bot) {
 
 async function getResponse(history, msg, imageBuffer, mimeType, instruction, userProfile, isSpontaneous, chatProfile) {
     try {
-        const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+        const apiKey = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY;
         if (!apiKey) {
-            console.error('GOOGLE_GEMINI_API_KEY не найден!');
-            return "ошибка: нет ключа gemini.";
+            console.error('AI_API_KEY не найден! Добавь его на Render.');
+            return "ошибка: нет ключа api.";
         }
 
         const historyText = history.slice(-10).map(m => `${m.role}: ${m.text}`).join('\n');
@@ -34,29 +33,33 @@ ${msg.replyText ? `Ответ на: ${msg.replyText}` : ''}
 `;
 
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            'https://openrouter.ai/api/v1/chat/completions',
             {
-                contents: [
-                    {
-                        parts: [{ text: prompt }]
-                    }
+                model: 'openrouter/free',
+                messages: [
+                    { role: 'system', content: 'Ты — Лёня, дерзкий бот с характером.' },
+                    { role: 'user', content: prompt }
                 ],
-                generationConfig: {
-                    temperature: 0.9,
-                    maxOutputTokens: 200
+                max_tokens: 200,
+                temperature: 0.9
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
                 }
             }
         );
 
-        const text = response.data.candidates[0].content.parts[0].text;
-        return text || "не, я хз чё сказать";
+        return response.data.choices[0].message.content || "не, я хз чё сказать";
 
     } catch (error) {
-        console.error('Gemini Error:', error.response?.data || error.message);
+        console.error('AI Error:', error.response?.data || error.message);
         return "бля, ошибка. попробуй позже.";
     }
 }
 
+// Остальные функции (заглушки)
 async function analyzeBatch(buffer, currentProfiles) { return {}; }
 async function analyzeUserImmediate(context, profile) { return null; }
 async function generateProfileDescription(profile, name) {
