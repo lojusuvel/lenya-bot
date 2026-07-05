@@ -8,55 +8,42 @@ function setBot(bot) {
 
 async function getResponse(history, msg, imageBuffer, mimeType, instruction, userProfile, isSpontaneous, chatProfile) {
     try {
-        const apiKey = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY;
+        const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
         if (!apiKey) {
-            console.error('AI_API_KEY не найден!');
-            return "ошибка: нет ключа api.";
+            console.error('GOOGLE_GEMINI_API_KEY не найден!');
+            return "ошибка: нет ключа gemini. добавь переменную googLE_gemini_api_key на рендере.";
         }
 
-        const historyText = history.slice(-10).map(m => `${m.role}: ${m.text}`).join('\n');
+        const historyText = history.slice(-5).map(m => `${m.role}: ${m.text}`).join('\n');
 
         const prompt = `
-Ты — Лёня. Тебе 27 лет. Ты уставший, ироничный, но справедливый.
-Твой стиль: коротко, по делу, с матом, но без агрессии.
-Пиши с маленькой буквы, без точек в конце.
-Никогда не говори "я языковая модель" или "я ИИ".
-
-История чата:
-${historyText}
-
-Собеседник: ${msg.sender}
-Сообщение: ${msg.text}
-${msg.replyText ? `Ответ на: ${msg.replyText}` : ''}
-
-Твой ответ (в стиле Лёни, коротко, 1-3 предложения):
+Ты — Лёня. Тебе 27 лет. Отвечай коротко, с матом, с маленькой буквы, без точек в конце.
+История: ${historyText}
+Сейчас тебе написал ${msg.sender}: ${msg.text}
+Твой ответ:
 `;
 
         const response = await axios.post(
-            'https://openrouter.ai/api/v1/chat/completions',
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
             {
-                model: 'meta-llama/llama-3.1-8b-instruct:free',
-                messages: [
-                    { role: 'system', content: 'Ты — Лёня, дерзкий бот с характером. Отвечай только на русском, коротко, с матом, с маленькой буквы.' },
-                    { role: 'user', content: prompt }
+                contents: [
+                    {
+                        parts: [{ text: prompt }]
+                    }
                 ],
-                max_tokens: 150,
-                temperature: 0.9,
-                top_p: 0.9
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
+                generationConfig: {
+                    temperature: 0.9,
+                    maxOutputTokens: 150
                 }
-            }
+            },
+            { timeout: 15000 }
         );
 
-        const text = response.data.choices[0].message.content;
-        return text || "не, я хз чё сказать";
+        const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+        return text || "не, хз";
 
     } catch (error) {
-        console.error('AI Error:', error.response?.data || error.message);
+        console.error('Gemini Error:', error.response?.data || error.message);
         return "бля, ошибка. попробуй позже.";
     }
 }
