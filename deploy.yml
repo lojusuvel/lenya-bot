@@ -1,4 +1,4 @@
-name: Deploy Sych Bot
+name: Deploy Lenya Bot
 
 on:
   push:
@@ -20,23 +20,22 @@ jobs:
           script: |
             set -e
 
-            # 1. Загружаем окружение (SSH-сессия GitHub "слепая" и не видит пути nvm/pm2)
+            # грузим окружение, чтобы всё работало
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || true
             source ~/.bashrc || true
 
-            # 2. Переходим в папку
-            cd /home/your_user/sych_bot
+            # идём в папку с ботом
+            cd /home/your_user/lenya_bot
 
-            # 3. Сбрасываем локальные правки lock-файла.
-            # npm install --production плодит изменения в package-lock.json, из-за чего
-            # git pull залипает ("local changes would be overwritten"). Чистим перед pull.
+            # сбрасываем локальные правки, чтобы не было конфликтов
             git checkout -- package-lock.json || true
 
-            # 4. Скачиваем обновления (set -e => при ошибке pull деплой ПАДАЕТ,
-            # а не рестартует молча старый код)
+            # качаем обновления
             git pull origin main
 
-            # 5. Обновляем библиотеки и перезапускаем
+            # ставим нужные библиотеки
             npm install --production
-            pm2 restart sych-bot
+
+            # перезапускаем лёню
+            pm2 restart lenya-bot
