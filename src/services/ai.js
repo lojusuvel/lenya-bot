@@ -7,7 +7,7 @@ function setBot(bot) {
     botInstance = bot;
 }
 
-// === ГЕНЕРАЦИЯ ОТВЕТА ЧЕРЕЗ OPENROUTER ===
+// === ГЕНЕРАЦИЯ ОТВЕТА ЧЕРЕЗ OPENROUTER (DeepSeek) ===
 async function getResponse(history, msg, imageBuffer, mimeType, instruction, userProfile, isSpontaneous, chatProfile) {
     try {
         // Берем ключ из переменных окружения
@@ -38,11 +38,11 @@ ${msg.replyText ? `Ответ на: ${msg.replyText}` : ''}
 Твой ответ (в стиле Лёни, коротко, 1-3 предложения):
 `;
 
-        // Отправляем запрос в OpenRouter
+        // Отправляем запрос в OpenRouter через DeepSeek
         const response = await axios.post(
             'https://openrouter.ai/api/v1/chat/completions',
             {
-                model: 'mistralai/mistral-7b-instruct:free', // Бесплатная модель
+                model: 'deepseek/deepseek-chat:free', // DeepSeek бесплатно
                 messages: [
                     { role: 'system', content: 'Ты — Лёня, дерзкий бот с характером.' },
                     { role: 'user', content: prompt }
