@@ -1,172 +1,159 @@
+```markdown
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Этот файл помогает Claude Code (claude.ai/code) работать с кодом в этом репозитории.
 
-## Project Overview
+## Обзор проекта
 
-Sych Bot is a Telegram bot with hybrid AI architecture (OpenRouter primary, Google Gemini fallback). It's a stateful conversational agent with character, memory, and autonomous decision-making capabilities. The bot operates primarily in Russian.
+Лёня Бот — это телеграм-бот с гибридной AI-архитектурой (OpenRouter основной, Google Gemini резервный). Это разговорный агент с характером, памятью и способностью принимать решения. Бот общается преимущественно на русском языке.
 
-- **Node.js**: 18+ required
-- **Package Type**: CommonJS
-- **Entry Point**: `src/index.js`
+- **Node.js**: требуется версия 18+
+- **Тип пакета**: CommonJS
+- **Точка входа**: `src/index.js`
 
-## Commands
+## Команды
 
 ```bash
-npm start          # Run the bot locally
-npm install        # Install dependencies
+npm start          # Запуск бота локально
+npm install        # Установка зависимостей
 ```
 
-### Production Deployment (PM2)
+Продакшен-развёртывание (PM2)
+
 ```bash
-pm2 start src/index.js --name "sych-bot"
-pm2 restart sych-bot
+pm2 start src/index.js --name "lenya-bot"
+pm2 restart lenya-bot
 ```
 
-Auto-deployment triggers on push to `main` via GitHub Actions (`.github/workflows/deploy.yml`).
+Авто-деплой происходит при пуше в main через GitHub Actions (.github/workflows/deploy.yml).
 
-## Development Workflow
+Рабочий процесс
 
 При любых изменениях:
-1. Обновить версию в `package.json` (поле `"version"`)
-2. **При добавлении новой функции** — обновить `/help` команду в `src/core/logic.js` (helpText)
-3. **При важных изменениях** — обновить `README.md` и `CLAUDE.md` если затронута документируемая функциональность
-4. Закоммитить и запушить в `main`:
+
+1. Обновить версию в package.json (поле "version")
+2. При добавлении новой функции — обновить /help команду в src/core/logic.js
+3. При важных изменениях — обновить README.md и CLAUDE.md
+4. Закоммитить и запушить в main:
    ```bash
    git add .
    git commit -m "описание изменений"
    git push origin main
    ```
-5. GitHub Actions автоматически деплоит на сервер — бот пересобирается для тестирования
+5. GitHub Actions автоматически деплоит на сервер
 
-## Architecture
+Архитектура
 
-### Core Components
+Основные компоненты
 
 ```
 src/
-├── index.js           # Bot initialization, polling, reminder ticker (60s interval)
-├── config.js          # Environment config, API keys, model selection
+├── index.js           # Инициализация бота, поллинг, тикер напоминаний (60 сек)
+├── config.js          # Конфиг окружения, ключи API, выбор моделей
 ├── core/
-│   ├── logic.js       # Main message handler and decision logic
-│   └── prompts.js     # System prompts and bot personality
+│   ├── logic.js       # Главный обработчик сообщений и логика решений
+│   └── prompts.js     # Системные промпты и личность бота
 ├── services/
-│   ├── ai.js          # Multi-provider AI service with fallback chain
-│   └── storage.js     # JSON file-based persistence (debounced saves)
+│   ├── ai.js          # AI-сервис с несколькими провайдерами и цепочкой падения
+│   └── storage.js     # JSON-хранилище с отложенным сохранением
 └── utils/
-    ├── helpers.js     # Utility functions
-    └── rich.js        # sendRichMessage helper (Bot API 10.1) + авто-фоллбэк
+    ├── helpers.js     # Вспомогательные функции
+    └── rich.js        # sendRichMessage (Bot API 10.1) + авто-фоллбэк
 ```
 
-### Data Storage (`/data` directory)
-- `db.json` - Chats, reminders, banned users
-- `profiles.json` - User profiles (reputation, traits, interests)
-- `chatProfiles.json` - Chat profiles (topic, facts, style)
-- `instructions.json` - User-specific instructions
+Хранилище данных (/data)
 
-### Message Processing Flow
+· db.json - Чаты, напоминания, забаненные пользователи
+· profiles.json - Профили пользователей (репутация, черты, интересы)
+· chatProfiles.json - Профили чатов (тема, факты, стиль)
+· instructions.json - Инструкции для конкретных пользователей
 
-1. **index.js**: Receives Telegram message via polling
-2. **logic.js**: `processMessage()` handles routing:
-   - Ban check → Thread resolution → Admin presence check → Command detection
-   - Private messages forward to admin
-   - Group messages go through AI processing
-3. **ai.js**: Multi-model response generation with search integration
-4. **storage.js**: Persist updates to JSON files
+Поток обработки сообщений
 
-### Hybrid AI Model Strategy
+1. index.js: Принимает сообщения через поллинг
+2. logic.js: processMessage() обрабатывает маршрутизацию:
+   · Проверка бана → Определение треда → Проверка присутствия админа → Обнаружение команд
+   · Личные сообщения пересылаются админу
+   · Сообщения в группах идут через AI-обработку
+3. ai.js: Генерация ответа с несколькими моделями и интеграцией поиска
+4. storage.js: Сохранение обновлений в JSON-файлы
 
-| Purpose | Model | Usage |
-|---------|-------|-------|
-| Logic/Analysis | `google/gemma-3-27b-it` | Context analysis, decide if response needed, emoji selection |
-| Smart Responses | `google/gemini-3-flash-preview` | Generate conversational replies |
-| Fallback | `gemini-2.5-flash-lite` | Google Gemini native when quota exhausted |
+Гибридная стратегия AI-моделей
 
-**Fallback chain**: OpenRouter → Google Gemini (rotates through multiple keys) → Admin notification
+Назначение Модель Использование
+Логика/Анализ google/gemma-3-27b-it Анализ контекста, решение отвечать или нет, выбор эмодзи
+Умные ответы google/gemini-3-flash-preview Генерация ответов в чате
+Резерв gemini-2.5-flash-lite Google Gemini когда квота исчерпана
 
-### Search Providers (configurable via `SEARCH_PROVIDER` env var)
-- Tavily (default, recommended)
-- Perplexity (via OpenRouter)
-- Google (via Gemini Tools)
+Цепочка падения: OpenRouter → Google Gemini (ротация ключей) → Уведомление админа
 
-**Tavily usage** (`@tavily/core`, **camelCase** options!): `search()` with `searchDepth:"advanced"`, `maxResults:5`, `chunksPerSource:3`, `includeAnswer:"advanced"`, plus `topic` (news/finance/general) + `timeRange` chosen per-query by the `shouldSearch` logic model for freshness. `ai.extractUrl()` reads a shared article URL via Tavily Extract (auto-triggered on a non-image link with read-intent).
+Поисковые провайдеры (настраивается через SEARCH_PROVIDER)
 
-## Key Environment Variables
+· Tavily (по умолчанию, рекомендуется)
+· Perplexity (через OpenRouter)
+· Google (через Gemini Tools)
+
+Ключевые переменные окружения
 
 ```
-TELEGRAM_BOT_TOKEN     # From @BotFather
-ADMIN_USER_ID          # Your Telegram ID (controls admin features)
-AI_API_KEY             # OpenRouter API key
-AI_BASE_URL            # Optional, defaults to OpenRouter
+TELEGRAM_BOT_TOKEN     # От @BotFather
+ADMIN_USER_ID          # Твой Telegram ID
+AI_API_KEY             # OpenRouter API ключ
+AI_BASE_URL            # Опционально, по умолчанию OpenRouter
 SEARCH_PROVIDER        # tavily | perplexity | google
-TAVILY_API_KEY         # If using Tavily search
-GOOGLE_GEMINI_API_KEY  # Required for fallback
-GOOGLE_GEMINI_API_KEY_2 # Optional additional keys for rotation
+TAVILY_API_KEY         # Для Tavily поиска
+GOOGLE_GEMINI_API_KEY  # Для резерва
 ```
 
-See `.env.example` for full configuration template.
+Система профилей (память о пользователях)
 
-## Profile System (User Memory)
+Бот запоминает информацию о пользователях в profiles.json (изолировано по чатам).
 
-Бот запоминает информацию о пользователях в `profiles.json` (изолировано по чатам).
+Поля профиля: realName, facts, attitude, relationship (0-100), location
 
-**Поля профиля:** `realName`, `facts`, `attitude`, `relationship` (0-100), `location`
+Два механизма обновления:
 
-**Два механизма обновления:**
-- **Batch (Наблюдатель)**: каждые 20 сообщений анализирует всех участников
-- **Immediate (Рефлекс)**: после каждого ответа бота анализирует собеседника
+· Batch (Наблюдатель): каждые 20 сообщений анализирует всех участников
+· Immediate (Рефлекс): после каждого ответа анализирует собеседника
 
-**Правила репутации:**
-- Позитив к боту: +1..+3 (копить сложно)
-- Негатив к боту: -5..-10 (терять легко)
-- Конфликты с другими пользователями НЕ влияют на репутацию
-- Валидация в коде: `storage.js` → `_applyProfileUpdates()`
+Правила репутации:
 
-## Chat Profile System (Chat Context)
+· Позитив к боту: +1..+3
+· Негатив к боту: -5..-10
+· Конфликты с другими НЕ влияют на репутацию
 
-Бот запоминает информацию о чатах в `chatProfiles.json`.
+Система профилей чатов (контекст чата)
 
-**Поля профиля чата:** `topic`, `facts`, `style`, `lastUpdated`
+Поля: topic, facts, style, lastUpdated
 
-**Механизмы обновления:**
-- **Batch**: каждые 50 сообщений анализирует тему и факты чата
-- **Инициализация**: при пустом профиле и наличии 10+ сообщений в истории
-- **Ручная команда**: `Сыч, этот чат про [описание]`
+Механизмы обновления:
 
-**Лимиты:**
-- `topic`: до 200 символов (1-2 предложения)
-- `facts`: до 500 символов (накопленные факты)
+· Batch: каждые 50 сообщений анализирует тему и факты
+· Инициализация: при пустом профиле и 10+ сообщениях
+· Ручная команда: лёня, этот чат про [описание]
 
-**Использование:** контекст чата передаётся в каждый запрос AI (~100 токенов).
+Память о картинках
 
-## Image Memory (Vision Context)
+Когда бот реально смотрит на изображение, после ответа он асинхронно получает подробное описание и вшивает его в историю сообщения. Это позволяет отвечать на вопросы по картинке без повторной отправки в нейронку.
 
-Когда бот реально смотрит на изображение (его позвали по фото/стикеру/картинке-ссылке или реплаем на них), после ответа он **асинхронно** получает **подробное** нейтральное описание картинки (абзац-полтора, потолок `config.imageDescMaxChars`, дефолт 1500 символов) дешёвой нативной моделью (`describeModel` на `gemini-2.5-flash-lite`, без характера Сыча и без поиска) и **вшивает его прямо в запись истории этого сообщения** (`[🖼 на картинке: ...]`). Промпт описания (`prompts.describeImage()`) намеренно универсальный — без перечня типов деталей; единственный жёсткий запрет — выдумывать то, чего не видно.
+Дизайн-решения
 
-- **Зачем:** описание едет в окне контекста (последние 30 сообщений), поэтому по картинке можно спрашивать дальше (цвет, что на фоне, текст со скрина) — модель отвечает из текста, **не отправляя картинку в нейронку повторно**.
-- **Экономия (lazy, Tier 1):** описывается только та картинка, которую бот реально трогал; игнорируемые мемы не стоят ничего. Вызов идёт в фоне на бесплатных ротируемых Google-ключах — на скорость ответа не влияет.
-- **Фоллбэк на пиксели:** если описание упустило деталь или бот ошибся — реплай прямо на саму картинку заставляет пересмотреть пиксели заново (`reply_to_message.photo` → новый vision-вызов) и обновляет память.
-- **Затухание:** память живёт, пока картинка в окне из 30 сообщений, дальше забывается сама.
+· Rich Messages: Все сообщения проходят через sendRich() с авто-фоллбэком
+· Админ-группы: Бот сам выходит из чатов, где админ не участник
+· Без базы данных: JSON-файлы с отложенным сохранением
+· История: Последние 30 сообщений на чат
+· Очередь обновлений профилей: Предотвращает гонку
+· Триггер: /(?<![а-яёa-z])(лёня|леня|леон|ленечка)(?![а-яёa-z])/i
+· Часовой пояс: Токио (UTC+9)
 
-Код: `ai.describeImage()` + `describeModel` (`src/services/ai.js`), `prompts.describeImage()`, вызов в `processMessage` (`src/core/logic.js`); `addToHistory()` теперь возвращает запись, чтобы её дообогатить описанием.
+Команды бота
 
-## Design Decisions
+· /start - Инфо о боте
+· /ban [username] - Забанить (админ)
+· /unban [ID] - Разбанить (админ)
+· лёня напомни [текст] - Напоминание
+· лёня кто я? - Профиль пользователя
+· лёня стата - Статистика
+· лёня, этот чат про [тема] - Установить тему чата
 
-- **Rich Messages**: All outgoing messages go through `sendRich()` (`src/utils/rich.js`) → Telegram `sendRichMessage` (Bot API 10.1), with auto-fallback to plain `sendMessage`. Convention: short replies = plain markdown; long AI answers = markdown field (model formats freely); showcase/system/admin = handcrafted HTML (escape dynamic parts with `escapeHtml`). `sendRichMessage` is called via raw HTTP (axios `proxy:false`), as `node-telegram-bot-api` doesn't support it yet. AI replies use the markdown field directly (native tables/lists — prettier than HTML); `normalizeMd` guarantees a blank line before tables. The AI may embed images via `![](url)` using real URLs from Tavily search (`include_images`), and multiple images as a `<tg-collage>`; `sendRich` retries without images/collage if Telegram rejects the media (then falls back to plain text). Stats = markdown table; sources = inline links + collapsible `<details>Источники</details>`; AI palette also includes `==highlight==`, `||spoiler||` and checklists. NB: time entities `tg://time` do NOT render — don't use them.
-- **Admin-only groups**: Bot auto-leaves groups where admin isn't a member
-- **No database**: JSON file persistence with 5-second debounced saves
-- **Graceful shutdown**: SIGINT handler saves all data before exit
-- **History limit**: Keeps last 30 messages per chat
-- **Profile updates queue**: Prevents race condition between Batch and Immediate
-- **Bot trigger pattern**: `/(?<![а-яёa-z])(сыч|sych)(?![а-яёa-z])/i`
-- **Timezone**: Yekaterinburg UTC+5 for time-aware responses
-
-## Bot Commands (in-chat)
-
-- `/start` - Bot info
-- `/ban [username]` - Ban user (admin only)
-- `/unban [ID]` - Restore user (admin only)
-- `Сыч напомни [текст]` - Set reminder
-- `Сыч кто я?` - Show user profile
-- `Сыч стата` - Show token usage statistics
-- `Сыч, этот чат про [тема]` - Set chat topic manually
+```
