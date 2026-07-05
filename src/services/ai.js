@@ -10,7 +10,7 @@ async function getResponse(history, msg, imageBuffer, mimeType, instruction, use
     try {
         const apiKey = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY;
         if (!apiKey) {
-            console.error('AI_API_KEY не найден! Добавь его на Render.');
+            console.error('AI_API_KEY не найден!');
             return "ошибка: нет ключа api.";
         }
 
@@ -35,13 +35,14 @@ ${msg.replyText ? `Ответ на: ${msg.replyText}` : ''}
         const response = await axios.post(
             'https://openrouter.ai/api/v1/chat/completions',
             {
-                model: 'openrouter/free',
+                model: 'meta-llama/llama-3.1-8b-instruct:free',
                 messages: [
-                    { role: 'system', content: 'Ты — Лёня, дерзкий бот с характером.' },
+                    { role: 'system', content: 'Ты — Лёня, дерзкий бот с характером. Отвечай только на русском, коротко, с матом, с маленькой буквы.' },
                     { role: 'user', content: prompt }
                 ],
-                max_tokens: 200,
-                temperature: 0.9
+                max_tokens: 150,
+                temperature: 0.9,
+                top_p: 0.9
             },
             {
                 headers: {
@@ -51,7 +52,8 @@ ${msg.replyText ? `Ответ на: ${msg.replyText}` : ''}
             }
         );
 
-        return response.data.choices[0].message.content || "не, я хз чё сказать";
+        const text = response.data.choices[0].message.content;
+        return text || "не, я хз чё сказать";
 
     } catch (error) {
         console.error('AI Error:', error.response?.data || error.message);
