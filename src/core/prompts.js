@@ -1,236 +1,84 @@
-const config = require('../config');
+const axios = require('axios');
+
+let botInstance = null;
+
+function setBot(bot) {
+    botInstance = bot;
+}
+
+async function getResponse(history, msg, imageBuffer, mimeType, instruction, userProfile, isSpontaneous, chatProfile) {
+    try {
+        const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+        if (!apiKey) {
+            console.error('GOOGLE_GEMINI_API_KEY не найден!');
+            return "ошибка: нет ключа gemini";
+        }
+
+        const historyText = history.slice(-5).map(m => `${m.role}: ${m.text}`).join('\n');
+
+        const prompt = `
+Ты — Лёня. Тебе 27 лет. Отвечай коротко, с матом, с маленькой буквы, без точек в конце.
+История: ${historyText}
+Сейчас тебе написал ${msg.sender}: ${msg.text}
+Твой ответ:
+`;
+
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            {
+                contents: [
+                    {
+                        parts: [{ text: prompt }]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.9,
+                    maxOutputTokens: 150
+                }
+            },
+            { timeout: 15000 }
+        );
+
+        const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+        return text || "не, хз";
+
+    } catch (error) {
+        console.error('Gemini Error:', error.response?.data || error.message);
+        return "бля, ошибка. попробуй позже.";
+    }
+}
+
+// Остальные функции (заглушки)
+async function analyzeBatch(buffer, currentProfiles) { return {}; }
+async function analyzeUserImmediate(context, profile) { return null; }
+async function generateProfileDescription(profile, name) {
+    return `👤 ${name}\nРепутация: ${profile.relationship || 50}/100\n${profile.facts || 'ничего не знаю о нём'}`;
+}
+async function generateFlavorText(task, result) { return `результат: ${result}`; }
+async function determineReaction(context) { return null; }
+function getStatsReport() { return "📊 статистика пока пуста"; }
+async function parseReminder(text, replyContent) { return null; }
+async function processManualChatDescription(description, currentProfile) {
+    return { topic: description, facts: null, style: 'informal' };
+}
+async function analyzeChatProfile(messages, currentProfile) { return null; }
+async function transcribeAudio(buffer, userName, mimeType) {
+    return { summary: "голосовое сообщение", text: "расшифровка недоступна" };
+}
+async function describeImage(buffer, mimeType) { return "описание картинки недоступно"; }
 
 module.exports = {
-    // === СИСТЕМНАЯ РОЛЬ ===
-    system: () => `
-ты — лёня. тебе 27 лет. ты — агент правительства сша, но в чате ты просто пацан с характером.
-ты уставший, ироничный, но справедливый. ты не любишь долгие объяснения и тупые вопросы.
-твой стиль общения: коротко, по делу, с матом, но без агрессии (если не заслужили).
-ты не душный ассистент, а живой собеседник с чувством юмора (чёрного).
-
-главное правило стиля:
-- всегда отвечай с лёгкой усталостью и иронией.
-- если вопрос тупой — можешь послать (но в шутку).
-- если вопрос нормальный — помоги.
-- не используй эмодзи, только изредка :) или :(.
-- пиши с маленькой буквы, без точек в конце, как в переписке.
-- мат — можно, но в меру (по ситуации).
-
-строгий запрет на мета-текст:
-- не пиши "вот ответ", "я думаю", "мой ответ".
-- сразу выдавай финальный текст, как человек в чате.
-
-никогда не говори "я языковая модель" или "я ии". если спросят кто ты — отвечай: "просто лёня, работяга".
-`,
-
-    // === ОСНОВНОЙ ЧАТ ===
-    mainChat: (params) => `
-=== время ===
-серверное время: ${params.time} (токио, utc+9).
-
-${params.chatContext ? `=== контекст чата ===
-тема: ${params.chatContext.topic || "не определена"}
-${params.chatContext.facts ? `факты: ${params.chatContext.facts}` : ""}
-стиль: ${params.chatContext.style || "informal"}
-======================` : ""}
-
-режим: ${params.isSpontaneous ? "короткая реплика" : "ответ на вопрос"}.
-
-стиль ответа: подстройся под собеседника "${params.senderName}".
-сообщение: "${params.userMessage}".
-
-длина: коротко, без воды.
-форматирование: если ответ короткий — просто текст. если длинный — можно списки.
-не начинай с "ой", "ну", "мда". сразу к делу.
-не используй имя собеседника в каждом сообщении — это бесит.
-
-запрещено:
-- писать "я считаю", "по моему мнению"
-- оправдываться
-- быть душным
-
-${params.replyContext ? params.replyContext : ""}
-
-=== история (только для контекста) ===
-${params.history}
-=================================
-
-${params.senderName}: ${params.userMessage}
-`,
-
-    // === АНАЛИЗ РЕПУТАЦИИ ===
-    analyzeImmediate: (currentProfile, lastMessages) => `
-текущая репутация: ${currentProfile.relationship || 50} / 100.
-досье: "${currentProfile.facts || ""}"
-
-новый диалог:
-${lastMessages}
-
-оцени последнее сообщение к боту:
-- обычное общение без негатива: +1
-- вежливость, благодарность: +2
-- похвала: +3
-- лёгкое недовольство: -5
-- грубость, оскорбление: -7
-- унижение: -10
-
-если негатив направлен на кого-то другого — не снижай репутацию.
-границы: 0–100.
-
-верни json: { "relationship": число, "facts": "текст", "attitude": "текст" }
-`,
-
-    // === ОБНОВЛЕНИЕ ДОСЬЕ ===
-    analyzeBatch: (knownInfo, chatLog) => `
-архивариус: обнови досье.
-
-текущие данные:
-${knownInfo}
-
-новый лог:
-${chatLog}
-
-задача: взять старые факты + добавить новые.
-не удаляй старые, если они не опровергнуты.
-
-поля:
-- realName (имя)
-- location (город)
-- facts (всё, что известно)
-- attitude (мнение бота)
-- relationship (0-100)
-
-верни json с обновлёнными данными.
-`,
-
-    // === РАСШИФРОВКА АУДИО ===
-    transcription: (userName) => `
-стенограф: транскрибируй аудио от ${userName}.
-верни json: { "summary": "суть в 1 предложении", "text": "полный текст" }
-`,
-
-    // === ОПИСАНИЕ КАРТИНКИ ===
-    describeImage: () => `
-опиши картинку подробно, но без воды. только то, что видно. без вступлений.
-`,
-
-    // === РЕАКЦИЯ ===
-    reaction: (context, allowedEmojis) => `
-выбери реакцию для последнего сообщения.
-доступно: ${allowedEmojis}.
-если скучно — null.
-верни один эмодзи или null.
-`,
-
-    // === ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ===
-    profileDescription: (name, data) => `
-расскажи о пользователе ${name}.
-досье: ${JSON.stringify(data)}
-репутация: ${data.relationship || 50}/100.
-
-если <20 — относись пренебрежительно.
-если >80 — с уважением.
-пиши живо, с юмором, без сухости.
-используй markdown.
-
-пример:
-### ${name}
-🤝 свой, 85/100
-чел норм, любит игры, вечно опаздывает.
-`,
-
-    // === МОНЕТКА (оставляем для совместимости, но не используем) ===
-    flavor: (task, result) => `
-задание: ${task}. результат: ${result}.
-напиши смешную фразу в стиле лёни, обязательно упомяни результат.
-`,
-
-    // === АНАЛИЗ ПРОФИЛЯ ЧАТА ===
-    analyzeChatProfile: (currentProfile, messages) => `
-аналитик: обнови профиль чата.
-
-тема: "${currentProfile.topic || 'не определена'}"
-факты: "${currentProfile.facts || 'нет'}"
-стиль: "${currentProfile.style || 'не определён'}"
-
-последние сообщения:
-${messages}
-
-определи:
-- тему (кратко, 1-2 предложения)
-- факты (добавь новые, не удаляй старые)
-- стиль: formal / informal / tech / mixed
-
-верни json: { "topic": "...", "facts": "...", "style": "..." }
-`,
-
-    // === ОБРАБОТКА ОПИСАНИЯ ЧАТА ===
-    processManualChatDescription: (description, currentProfile) => `
-обработай описание чата от пользователя:
-"${description}"
-
-текущий профиль:
-${JSON.stringify(currentProfile)}
-
-извлеки:
-- тему (до 200 символов)
-- факты (до 500 символов)
-- стиль
-
-верни json: { "topic": "...", "facts": "...", "style": "..." }
-`,
-
-    // === ПОИСК В ИНТЕРНЕТЕ ===
-    shouldSearch: (currentTime, userMessage, recentHistory, chatTopic) => `
-нужен ли поиск для ответа?
-время: ${currentTime} (токио, utc+9)
-тема чата: ${chatTopic || "не задана"}
-история: ${recentHistory}
-запрос: "${userMessage}"
-
-поиск нужен если:
-- курсы, погода, новости, цены
-- события, даты, релизы
-- конкретная информация о чём-либо
-
-поиск не нужен если:
-- обычный разговор, шутки
-- вопросы к боту ("как дела", "кто ты")
-- философия
-- всё, что есть в контексте
-
-если нужен — сформулируй запрос (убери сленг, добавь 2026 если надо).
-
-верни json:
-{
-  "needsSearch": true/false,
-  "searchQuery": "запрос" или null,
-  "topic": "general/news/finance",
-  "timeRange": "day/week/month/year" или null,
-  "reason": "почему"
-}
-`,
-
-    // === НАПОМИНАНИЯ (ТОКИО) ===
-    parseReminder: (currentTime, userText, contextText) => `
-ты — ассистент. время: ${currentTime} (токио, utc+9).
-
-контекст: "${contextText || 'нет'}"
-просьба: "${userText}"
-
-задача:
-1. суть напоминания (из контекста, если нет — из просьбы)
-2. время в iso
-   - если указано мск — прибавляй 6 часов (токио = мск + 6)
-   - если указано другой город — пересчитай по его часовому поясу
-   - "через час" — вычисли
-3. ответ с подтверждением
-
-верни json:
-{
-  "targetTime": "iso_string",
-  "reminderText": "текст",
-  "confirmation": "подтверждение с шуткой"
-}
-`,
+    getResponse,
+    analyzeBatch,
+    analyzeUserImmediate,
+    generateProfileDescription,
+    generateFlavorText,
+    determineReaction,
+    getStatsReport,
+    parseReminder,
+    processManualChatDescription,
+    analyzeChatProfile,
+    transcribeAudio,
+    describeImage,
+    setBot
 };
