@@ -272,3 +272,22 @@ process.on('SIGINT', () => {
   storage.forceSave(); 
   process.exit();
 });
+
+process.on('SIGTERM', () => {
+  console.log("получен SIGTERM, сохраняю данные...");
+  storage.forceSave();
+  process.exit(0);
+});
+
+// === ВЕБ-СЕРВЕР ДЛЯ RENDER (чтобы не ругался на отсутствие порта) ===
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 10000;
+
+app.get('/', (req, res) => {
+    res.send('Лёня работает! Бот активен.');
+});
+
+app.listen(port, () => {
+    console.log(`[WEB] веб-сервер запущен на порту ${port}`);
+});
