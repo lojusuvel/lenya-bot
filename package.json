@@ -1,12 +1,12 @@
 {
-  "name": "sych-bot",
+  "name": "lenya-bot",
   "version": "1.9.3",
   "main": "bot.js",
   "scripts": {
     "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["telegram", "bot", "lenya"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -19,5 +19,5 @@
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^6.15.0"
   },
-  "description": ""
+  "description": "Лёня — телеграм-бот с характером"
 }
