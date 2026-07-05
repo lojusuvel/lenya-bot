@@ -36,7 +36,7 @@ ${msg.replyText ? `Ответ на: ${msg.replyText}` : ''}
         const response = await axios.post(
             'https://openrouter.ai/api/v1/chat/completions',
             {
-                model: 'google/gemini-2.0-flash-lite-001',
+                model: 'qwen/qwen-2.5-72b-instruct:free',
                 messages: [
                     { role: 'system', content: 'Ты — Лёня, дерзкий бот с характером.' },
                     { role: 'user', content: prompt }
