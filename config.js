@@ -23,7 +23,7 @@ module.exports = {
   aiBaseUrl: process.env.AI_BASE_URL || "https://openrouter.ai/api/v1",
   aiKey: process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY, 
 
-  // === АКТУАЛЬНЫЕ МОДЕЛИ (ИЮНЬ 2026) ===
+  // === АКТУАЛЬНЫЕ МОДЕЛИ (ИЮЛЬ 2026) ===
 
   // 1. УМНАЯ (Ответы в чате) - оставляем как есть
   mainModel: 'google/gemini-3.5-flash',
@@ -46,6 +46,6 @@ module.exports = {
   maxOutputTokens: 16000,
   imageDescMaxChars: 1500,
 
-  // ✅ САМОЕ ГЛАВНОЕ — МЕНЯЕМ ТРИГГЕР С "СЫЧ" НА "ЛЁНЯ"
+  // ✅ САМОЕ ГЛАВНОЕ — МЕНЯЕМ ТРИГГЕР "ЛЁНЯ"
   triggerRegex: /(?<![а-яёa-z])(лёня|леня|леон|ленечка)(?![а-яёa-z])/i,
 };
